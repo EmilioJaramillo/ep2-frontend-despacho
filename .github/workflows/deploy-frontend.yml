@@ -1,0 +1,41 @@
+name: Deploy Frontend to AWS EC2
+
+on:
+  push:
+    branches:
+      - deploy 
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout del código
+      uses: actions/checkout@v3
+
+    - name: Login en Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build y Push de la Imagen Docker
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: true
+        tags: emiliojaramillo/ep2-frontend-despacho:latest
+
+    - name: Deploy en AWS EC2 via SSH
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.EC2_FRONTED_HOST }}
+        username: ec2-user
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          docker stop react_frontend || true
+          docker rm react_frontend || true
+          
+          docker pull emiliojaramillo/ep2-frontend-despacho:latest
+          
+          docker run -d --name react_frontend -p 80:80 emiliojaramillo/ep2-frontend-despacho:latest
